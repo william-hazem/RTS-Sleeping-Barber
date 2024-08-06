@@ -12,18 +12,29 @@ const char* log_color[] = {
     "\033[31m", // Error    - red
 };
 
+const char* log_string[] = {
+    "DEBUG",
+    "INFO",
+    "WARNING",
+    "ERROR",
+};
+
 void logger(logger_t log_level, char* format, ...)
 {
     printf("%s", log_color[log_level+1]);
-    time_t now;
-    time(&now);
-    printf("[DATA] -> ", ctime(&now));
+    // current time
+    time_t now = time(NULL);
+    struct tm* local = localtime(&now);
+    char time_str[16];
+    strftime(time_str, sizeof(time_str), "%T", local); // %T = H:M:S
+
+    printf("[%s] [%s] ", time_str, log_string[log_level]);
 
     va_list args;
     va_start(args, format);
     vprintf(format, args);
     va_end(args);
 
-    printf("%s", log_color[0]);   // reset color
+    printf("%s\n", log_color[0]);   // reset color
     fflush(stdout);
 }

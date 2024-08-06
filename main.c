@@ -6,6 +6,7 @@
 
 void *thread_function(void *arg)
 {
+    logger(LOG_INFO, "Thread 1 created with pid %lu", (unsigned long)pthread_self());
     printf("Thread: Hello World! \n");
 }
 
@@ -20,15 +21,17 @@ void *thread_function2(void *arg)
 
 int main()
 {
-    printf("\033[33m OLA \033[37m\n");
-    logger(LOG_DEBUG,   "Debug text\n");
-    logger(LOG_INFO,    "Info text\n");
-    logger(LOG_WARNING, "Warning text\n");
-    logger(LOG_ERROR,   "Error text\n");
-    pthread_t thread_id;
+    logger(LOG_DEBUG,   "Debug text");
+    logger(LOG_INFO,    "Info text");
+    logger(LOG_WARNING, "Warning text");
+    logger(LOG_ERROR,   "Error text");
+    pthread_t thread1;
+    pthread_t thread2;
+    pthread_create(&thread1, NULL, thread_function, NULL);
+    pthread_create(&thread2, NULL, thread_function2, NULL);
+    logger(LOG_INFO, "Thread 1 created with thread id %lu", (unsigned long)thread1);
+    logger(LOG_INFO, "Thread 2 created with thread id %lu", (unsigned long)thread2);
 
-    pthread_create(&thread_id, NULL, thread_function, NULL);
-    pthread_create(NULL, NULL, thread_function2, NULL);
     // Problem: How do we tell main() to wait for our thread
     // to execute ?
     pthread_exit(NULL);
