@@ -1,5 +1,5 @@
 # source code
-SRC = main.c
+SRC = main.cpp
 
 # library flags
 CFLAG = -lpthread -Iinclude
@@ -16,7 +16,7 @@ $(OBJ_DIR):
 all: logger | main
 
 main: $(SRC) | logger
-	gcc $(SRC) $(CFLAG) -L$(LIB_DIR) -llogger -o main
+	g++ $(SRC) $(CFLAG) -L$(LIB_DIR) -llogger -o main
 
 logger: $(LIB_DIR) | $(OBJ_DIR)
 	gcc -c include/logger.c -o $(OBJ_DIR)/logger.o
