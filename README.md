@@ -7,4 +7,4 @@
     <li> pthread
 </ul>
 
-doc ...
+![](img/squematic.png)
