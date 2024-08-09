@@ -7,13 +7,13 @@ CFLAG = -lpthread -Iinclude
 LIB_DIR = lib
 OBJ_DIR = obj
 
+all: logger | main
+
 $(LIB_DIR):
 	mkdir -p $(LIB_DIR)
 
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
-
-all: logger | main
 
 main: $(SRC) | logger
 	g++ $(SRC) $(CFLAG) -L$(LIB_DIR) -llogger -o main
