@@ -7,6 +7,6 @@
     <li> pthread
 </ul>
 
-![](img/squematic.png)
-
+![Diagrama](Diagram.png)
+ 
 [Link do video no Youtube](https://youtu.be/zURhDanFUwM)
