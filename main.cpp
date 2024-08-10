@@ -163,11 +163,11 @@ void *f_barber(void *arg)
             
                 if(q_wait.size() == 0) break;   // no client waiting
                 costumer.client_id = q_wait.front().client_id;
-                q_wait.pop();
                 // sem_wait(&s_wait);
                     g_data->barber_id = id;
                     sem_post(q_wait.front().sem);
                     // sem_wait(&sync_read);
+                q_wait.pop();
                 // sem_wait(&s_wait);
             
             sem_post(&s_queue);
