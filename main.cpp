@@ -167,6 +167,8 @@ void *f_barber(void *arg)
 
 int main()
 {
+    logger_init();
+    
     pthread_t t_barbershop;
     pthread_t t_baber[3];
     int barber_ids[] = {0, 1, 2};
