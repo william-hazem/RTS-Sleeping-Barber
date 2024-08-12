@@ -1,37 +1,27 @@
 #include <stdio.h>
 #include <pthread.h>
-#include <unistd.h> // sleep
-#include <time.h>
-#include <logger.h>
-#include <semaphore.h> 
-#include <math.h>
-#include <inttypes.h>
-#include <queue>
-
-// Problemas divertidos de experiência:
-//  waiting for a resource infinitly because someone hold it and finished without release the resource
-//
-
+#include <unistd.h>     // sleep
+#include <logger.h>     // logger utilities
+#include <semaphore.h>  // sem_t, sem_post, sem_wait
+#include <math.h>       // rand
+#include <queue>        // std::queue
 typedef struct 
 {
-    uint32_t client_id;
-    uint32_t barber_id;   
+    int client_id;
+    int barber_id;   
 }data_t;
 
 data_t* g_data;    // global data
 
 typedef struct
 {
-    uint32_t client_id;
+    int client_id;
     sem_t* sem;
 }costumer_t;
 
 #define MAX 5
 #define CLIENT_RATE 40               // client arrive rate
 std::queue<costumer_t> q_wait;       // costumer FIFO
-int wait_chairs;
-//pthread_mutex_t barbeiros[3];      // Barbeiros - dormindo/acordado  
-sem_t s_barbers[3];                  // sleeping=0/waked=1
 
 sem_t s_wait;
 sem_t sync_read;
@@ -52,7 +42,7 @@ void *f_client(void *arg);
 void *f_barbershop(void *arg)
 {   
     // randonly generate clients
-    uint32_t client_counter = 0;
+    int client_counter = 0;
     for(;;)
     {
         int r = rand() % 100;
@@ -60,7 +50,7 @@ void *f_barbershop(void *arg)
         {
             pthread_t tid;
             logger(LOG_DEBUG, "Client %d arrived", client_counter);
-            uint32_t temp = client_counter;
+            int temp = client_counter;
             if(pthread_create(&tid, NULL, f_client, (void*)&temp) != 0)
                 logger(LOG_ERROR, "Client thread not started");
             client_counter++;   
@@ -72,7 +62,7 @@ void *f_barbershop(void *arg)
 
 void *f_client(void *arg)
 {
-    uint32_t client_id = *(uint32_t*)arg;
+    int client_id = *(int*)arg;
     if(q_wait.size() >= MAX)
     {
         logger(LOG_WARNING, "FULL QUEUE! - Client %d leaves", client_id);
@@ -146,29 +136,25 @@ void *f_barber(void *arg)
         sem_wait(&sync_wakeup);
         flag_wake[id] = true;
         logger(LOG_INFO, "Barber %d waked", id);
-        costumer = *g_data;  // get costumer from global buffer
+        costumer = *g_data;  // get costumer from global pointer
         g_data->barber_id = id;
         sem_post(&sync_awake);
 
         for(;;)
         {
             logger(LOG_INFO, "Barber %d cutting client %d hair", id, costumer.client_id);
-            // cut client hair
-            sleep(10*T);
+            sleep(10*T);                    // simulate the hair cut
             sem_post(&s_finish[id]);
             logger(LOG_INFO, "Barber %d ENDED client %d hair", id, costumer.client_id);
             
             
-            sem_wait(&s_queue);             // critical section to get client
-            
-                if(q_wait.size() == 0) break;   // no client waiting
-                costumer.client_id = q_wait.front().client_id;
-                q_wait.pop();
-                // sem_wait(&s_wait);
-                    g_data->barber_id = id;
-                    sem_post(q_wait.front().sem);
-                    // sem_wait(&sync_read);
-                // sem_wait(&s_wait);
+            sem_wait(&s_queue);             // critical section to get costumer
+            // ensure thread safe for queue operation
+            if(q_wait.size() == 0) break;   // no client waiting
+            costumer.client_id = q_wait.front().client_id;
+            g_data->barber_id = id;         // send barber id to client
+            sem_post(q_wait.front().sem);
+            q_wait.pop();                   // remove costumer from queue
             
             sem_post(&s_queue);
 
@@ -181,18 +167,18 @@ void *f_barber(void *arg)
 
 int main()
 {
-
-    pthread_t thread1;
-    pthread_t thread2;
+    pthread_t t_barbershop;
     pthread_t t_baber[3];
+    int barber_ids[] = {0, 1, 2};
     
+    // initialize semaphores
     sem_init(&sync_read, 0, 0);
     sem_init(&s_queue, 0, 1);
     sem_init(&s_wait, 0, 1);
-    if(sem_init(&sync_wakeup, 0, 0) != 0) logger(LOG_ERROR, "sync_wakeup");
-    if(sem_init(&sync_awake, 0, 0) != 0) logger(LOG_ERROR, "sync_awake");
+    sem_init(&sync_wakeup, 0, 0);
+    sem_init(&sync_awake, 0, 0);
 
-    uint32_t barber_ids[] = {0, 1, 2};
+    
     for(int i = 0; i < 5; i++)
     {
         flag_queue[i] = false;
@@ -208,7 +194,7 @@ int main()
         }
     }
     sleep(1);
-    pthread_create(&thread1, NULL, f_barbershop, NULL);
+    pthread_create(&t_barbershop, NULL, f_barbershop, NULL);
 
     pthread_exit(NULL);
     return 0; 
