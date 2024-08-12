@@ -167,10 +167,19 @@ void *f_barber(void *arg)
 
 int main()
 {
+<<<<<<< HEAD
     pthread_t t_barbershop;
     pthread_t t_baber[3];
     int barber_ids[] = {0, 1, 2};
     
+=======
+    logger_init();
+    
+    pthread_t t_barbershop;
+    pthread_t t_baber[3];
+    int barber_ids[] = {0, 1, 2};
+    
+>>>>>>> v2.1
     // initialize semaphores
     sem_init(&sync_read, 0, 0);
     sem_init(&s_queue, 0, 1);
