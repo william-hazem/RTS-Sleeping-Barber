@@ -20,7 +20,7 @@ typedef struct
 }costumer_t;
 
 #define MAX 5
-#define CLIENT_RATE 40               // client arrive rate
+#define CLIENT_RATE 30               // client arrive rate
 std::queue<costumer_t> q_wait;       // costumer FIFO
 
 sem_t s_wait;
@@ -29,7 +29,8 @@ sem_t sync_wakeup;                   // sync
 sem_t sync_awake;
 bool flag_wake[3];                   // flag
 
-sem_t s_finish[3];
+sem_t s_finish[3];                   // sync: says to client that the barber finished
+sem_t s_chair[3];                    // sync: wait client leave
 sem_t sync_queue_wait[MAX];
 bool flag_queue[MAX];                // Maps what element in sync_queue_wait is available
 
@@ -68,7 +69,7 @@ void *f_client(void *arg)
         logger(LOG_WARNING, "FULL QUEUE! - Client %d leaves", client_id);
         return NULL;
     }
-    costumer_t costumer = {.client_id = client_id, .sem=NULL};
+    costumer_t costumer = {.client_id = client_id, .sem=NULL,};
     
     sem_wait(&s_wait);
     int i = 0;
@@ -87,10 +88,10 @@ void *f_client(void *arg)
         data.barber_id = g_data->barber_id;
         sem_post(&s_wait);  // release g_data access
 
-        // logger(LOG_INFO, "[Client %d] Barber %d is cutting my hair", client_id, data.barber_id);
+        logger(LOG_DEBUG, "[Client %d] Barber %d is cutting my hair", client_id, data.barber_id);
         // if(i != data.barber_id) logger(LOG_ERROR, "[Client %d] wasn't correct assigned %d !- %d");
     }
-    else
+    else // all barber busy - wait on queue
     {
         sem_post(&s_wait);  // release g_data access
         // ensure thread safe for queue operation
@@ -107,47 +108,49 @@ void *f_client(void *arg)
         {
             costumer.sem = &sync_queue_wait[j];
             q_wait.push(costumer);
-            logger(LOG_INFO, "[Client %d] is waiting (%d/%d)", client_id, q_wait.size(), MAX);
+            logger(LOG_DEBUG, "[Client %d] is waiting (%d/%d)", client_id, q_wait.size(), MAX);
         }
         sem_post(&s_queue);
 
         // wait until barber calls
         sem_wait(costumer.sem);
-        i = g_data->barber_id;
+        data.barber_id = g_data->barber_id;
         // sem_post(&sync_read);
-        // logger(LOG_DEBUG, "[Client %d] leaved queue, is going to cut", client_id);
+        logger(LOG_DEBUG, "[Client %d] leaved queue, sitting in chair %d", client_id, data.barber_id);
     }
     
-
-    sem_wait(&s_finish[i]);
-    logger(LOG_INFO, "[Client %d] finish - barber %d", client_id, i);
+    /// Request the chair when available
+    //  only grant access to barber's chair  when the last costumer leave it
+    sem_wait(&s_chair[data.barber_id]);
     
+    sem_wait(&s_finish[i]);
+    logger(LOG_DEBUG, "[Client %d] finish - barber %d", client_id, data.barber_id);
+
+    sem_post(&s_chair[data.barber_id]);
     return NULL;
 }
 
 void *f_barber(void *arg)
 {
-
     int id = *(int*) arg;
     data_t costumer;
-    logger(LOG_INFO, "Barber %d created with pid %lu", id, (unsigned long)pthread_self());
+    logger(LOG_INFO, "[Barber %d] created with pid %lu", id, (unsigned long)pthread_self());
     for(;;)
     {
         sem_wait(&sync_wakeup);
         flag_wake[id] = true;
-        logger(LOG_INFO, "Barber %d waked", id);
+        logger(LOG_INFO, "[Barber %d] waked", id);
         costumer = *g_data;  // get costumer from global pointer
         g_data->barber_id = id;
         sem_post(&sync_awake);
 
         for(;;)
         {
-            logger(LOG_INFO, "Barber %d cutting client %d hair", id, costumer.client_id);
+            logger(LOG_INFO, "[Barber %d] cutting client %d hair", id, costumer.client_id);
             sleep(10*T);                    // simulate the hair cut
             sem_post(&s_finish[id]);
-            logger(LOG_INFO, "Barber %d ENDED client %d hair", id, costumer.client_id);
-            
-            
+            logger(LOG_INFO, "[Barber %d] ENDED client %d hair", id, costumer.client_id);
+
             sem_wait(&s_queue);             // critical section to get costumer
             // ensure thread safe for queue operation
             if(q_wait.size() == 0) break;   // no client waiting
@@ -159,7 +162,7 @@ void *f_barber(void *arg)
             sem_post(&s_queue);
 
         }
-        logger(LOG_WARNING, "Barber %d going to sleep", id);
+        logger(LOG_WARNING, "[Barber %d] going to sleep", id);
         flag_wake[id] = false;
     }
     return NULL;
@@ -167,19 +170,12 @@ void *f_barber(void *arg)
 
 int main()
 {
-<<<<<<< HEAD
-    pthread_t t_barbershop;
-    pthread_t t_baber[3];
-    int barber_ids[] = {0, 1, 2};
-    
-=======
     logger_init();
     
     pthread_t t_barbershop;
     pthread_t t_baber[3];
     int barber_ids[] = {0, 1, 2};
     
->>>>>>> v2.1
     // initialize semaphores
     sem_init(&sync_read, 0, 0);
     sem_init(&s_queue, 0, 1);
@@ -196,6 +192,7 @@ int main()
     for(int i = 0; i < 3; i++)
     {
         sem_init(&s_finish[i], 0, 0);
+        sem_init(&s_chair[i], 0, 1);
         if(pthread_create(&t_baber[i], NULL, f_barber, &barber_ids[i]) != 0)
         {
             logger(LOG_ERROR, "Error when creating barber tasks");
