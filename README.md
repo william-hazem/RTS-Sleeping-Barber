@@ -38,7 +38,7 @@ A seguir uma breve descrição de como os <b>problemas de exclusão mútua, dead
 <b>Diagrama funcional:</b>
 ![Diagrama](img/Diagram.png)
  
-[Link do video no Youtube](https://youtu.be/zURhDanFUwM)
+[Link do video no Youtube](https://youtu.be/qrJ4FP_Sh9c) 
 
 <br>
 
