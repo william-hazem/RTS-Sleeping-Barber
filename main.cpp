@@ -20,7 +20,7 @@ typedef struct
 }costumer_t;
 
 #define MAX 5
-#define CLIENT_RATE 30               // client arrive rate
+#define CLIENT_RATE 20               // client arrive rate
 std::queue<costumer_t> q_wait;       // costumer FIFO
 
 sem_t s_wait;
@@ -81,6 +81,8 @@ void *f_client(void *arg)
 
     if(i < 3) // if has at least one barber sleeping
     {
+        logger(LOG_DEBUG, "[Client %d] Trying to wakeup a barber", client_id);
+
         g_data = &data;                     // send information to barber
         sem_post(&sync_wakeup);            // ask for some barber wake
         sem_wait(&sync_awake);             // wait some barber to wakeup (wait barber id)
@@ -96,6 +98,7 @@ void *f_client(void *arg)
         sem_post(&s_wait);  // release g_data access
         // ensure thread safe for queue operation
         sem_wait(&s_queue);
+        logger(LOG_DEBUG, "[Client %d] Trying to enter into queue", client_id);
         int j = 0;
         for(; j < MAX; j++)
             if(!flag_queue[j]) break;
@@ -132,8 +135,8 @@ void *f_client(void *arg)
 
 void *f_barber(void *arg)
 {
-    int id = *(int*) arg;
-    data_t costumer;
+    int id = *(int*) arg;   // Barber id
+    data_t costumer;        // Store costumer id and semaphore
     logger(LOG_INFO, "[Barber %d] created with pid %lu", id, (unsigned long)pthread_self());
     for(;;)
     {
@@ -147,13 +150,13 @@ void *f_barber(void *arg)
         for(;;)
         {
             logger(LOG_INFO, "[Barber %d] cutting client %d hair", id, costumer.client_id);
-            sleep(10*T);                    // simulate the hair cut
+            sleep(5*T);                    // simulate the hair cut
             sem_post(&s_finish[id]);
             logger(LOG_INFO, "[Barber %d] ENDED client %d hair", id, costumer.client_id);
 
-            sem_wait(&s_queue);             // critical section to get costumer
-            // ensure thread safe for queue operation
             if(q_wait.size() == 0) break;   // no client waiting
+            // ensure thread safe for queue operation
+            sem_wait(&s_queue);             // critical section to get costumer
             costumer.client_id = q_wait.front().client_id;
             g_data->barber_id = id;         // send barber id to client
             sem_post(q_wait.front().sem);
@@ -183,12 +186,13 @@ int main()
     sem_init(&sync_wakeup, 0, 0);
     sem_init(&sync_awake, 0, 0);
 
-    
+    // initialize queue flags
     for(int i = 0; i < 5; i++)
     {
         flag_queue[i] = false;
         sem_init(&sync_queue_wait[i], 0, 0);
     }
+    // initialize barber tasks
     for(int i = 0; i < 3; i++)
     {
         sem_init(&s_finish[i], 0, 0);
@@ -199,7 +203,9 @@ int main()
             exit(1);
         }
     }
+    
     sleep(1);
+    // initialize barbershop (costumer thread spawner)
     pthread_create(&t_barbershop, NULL, f_barbershop, NULL);
 
     pthread_exit(NULL);
